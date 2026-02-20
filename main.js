@@ -28,11 +28,11 @@ async function handleMessages(conn, m) {
             const filePath = voiceMessages[text];
             
             if (fs.existsSync(filePath)) {
-                await conn.sendMessage(from, { 
-                    audio: fs.readFileSync(filePath), 
-                    mimetype: 'audio/mp4', 
-                    ptt: true // true දැමූ විට එය voice message එකක් ලෙස පෙනේ
-                }, { quoted: msg }); // මැසේජ් එකට Reply එකක් ලෙස යැවීමට
+               await conn.sendMessage(from, { 
+                audio: audioBuffer, 
+                mimetype: 'audio/mpeg', // 'audio/mp4' වෙනුවට 'audio/mpeg' උත්සාහ කරන්න
+                ptt: true 
+                }, { quoted: msg });
             }
         }
 
