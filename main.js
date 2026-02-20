@@ -37,9 +37,9 @@ async function handleMessages(conn, m) {
                     ptt: true 
                 }, { quoted: msg });
 
-                console.log(`Send Media File: ${filePath}`);
+                console.log(`සාර්ථකව යැවුවා: ${filePath}`);
             } else {
-                console.log(`Not Found Media file: ${filePath}`);
+                console.log(`ගොනුව හමුනොවුනි: ${filePath}`);
             }
         }
 
@@ -48,5 +48,4 @@ async function handleMessages(conn, m) {
     }
 }
 
-module.exports = { handleMessages };
 module.exports = { handleMessages };
