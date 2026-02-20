@@ -1,43 +1,60 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
 const pino = require('pino');
 const { handleMessages } = require('./main.js');
 const qrcode = require('qrcode-terminal');
+const fs = require('fs');
 
 async function startBot() {
+    // 1. Session ගබඩා කරන තැන සකසමු
     const { state, saveCreds } = await useMultiFileAuthState('auth_session');
+    
+    // 2. අලුත්ම Baileys version එක ගනිමු
+    const { version } = await fetchLatestBaileysVersion();
 
     const conn = makeWASocket({
+        version,
         auth: state,
-        printQRInTerminal: true,
+        printQRInTerminal: true, // මෙය true විය යුතුය
         logger: pino({ level: 'silent' }),
-        browser: ["Voice Bot", "Safari", "1.0.0"]
+        browser: ["Chrome", "Windows", "10.0.0"] // Browser එක නිවැරදිව ලබා දීම
     });
 
     conn.ev.on('creds.update', saveCreds);
 
-   conn.ev.on('connection.update', (update) => {
-    const { connection, lastDisconnect, qr } = update;
+    conn.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect, qr } = update;
 
-    // QR එක පෙන්වීමට මෙය අනිවාර්යයි
-    if (qr) {
-        console.log("-----------------------------------------");
-        console.log("කරුණාකර පහත QR Code එක Scan කරන්න:");
-        qrcode.generate(qr, { small: true });
-        console.log("-----------------------------------------");
-    }
+        // QR එකක් ආවොත් එය පෙන්වන්න
+        if (qr) {
+            console.log("-----------------------------------------");
+            console.log("කරුණාකර පහත QR Code එක Scan කරන්න:");
+            qrcode.generate(qr, { small: true });
+            console.log("-----------------------------------------");
+        }
 
-    if (connection === 'close') {
-        const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
-        console.log('සම්බන්ධතාවය බිඳ වැටුණි. නැවත සම්බන්ධ වෙමින්: ', shouldReconnect);
-        if (shouldReconnect) startBot();
-    } else if (connection === 'open') {
-        console.log("බොට් සාර්ථකව සම්බන්ධ විය! ✅");
-    }
-});
+        if (connection === 'close') {
+            const statusCode = lastDisconnect?.error?.output?.statusCode;
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
+            console.log(`සම්බන්ධතාවය බිඳ වැටුණි (Reason: ${statusCode}). නැවත සම්බන්ධ වෙමින්: ${shouldReconnect}`);
+
+            // සෙෂන් එක අවුල් නම්, ෆෝල්ඩරය මකා අලුතින් පටන් ගනී
+            if (statusCode === DisconnectReason.restartRequired || statusCode === 401) {
+                console.log("සෙෂන් එකේ දෝෂයක්. කරුණාකර නැවත රන් කරන්න.");
+                // fs.rmSync('./auth_session', { recursive: true, force: true }); // අවශ්‍ය නම් මෙය භාවිතා කරන්න
+                startBot();
+            } else if (shouldReconnect) {
+                startBot();
+            }
+        } else if (connection === 'open') {
+            console.log("බොට් සාර්ථකව සම්බන්ධ විය! ✅");
+        }
+    });
 
     conn.ev.on('messages.upsert', async (m) => {
         await handleMessages(conn, m);
     });
 }
 
-startBot();
+// දෝෂයක් ආවොත් ප්‍රධාන ක්‍රියාවලිය නතර වීම වැළැක්වීමට
+startBot().catch(err => console.log("වැරදීමක්: " + err));
