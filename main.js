@@ -5,13 +5,13 @@ const fs = require('fs');
 async function handleMessages(conn, m) {
     try {
         const msg = m.messages[0];
+        // මැසේජ් එකක් නැත්නම් හෝ බොට් විසින්ම යැවූ එකක් නම් නතර කරන්න
         if (!msg.message || msg.key.fromMe) return;
 
         const from = msg.key.remoteJid;
-        const isGroup = from.endsWith('@g.us'); // ගෲප් එකක්දැයි බලයි
-        const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase();
+        const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase().trim();
 
-        // 1. වෙල්කම් මැසේජ් (ඕනෑම කෙනෙක් 'hi' හෝ 'start' එවූ විට)
+        // 1. වෙල්කම් මැසේජ් පරීක්ෂාව
         if (text === 'hi' || text === 'start') {
             if (fs.existsSync(settings.welcomeImage)) {
                 await conn.sendMessage(from, { 
@@ -23,16 +23,23 @@ async function handleMessages(conn, m) {
             }
         }
 
-        // 2. වොයිස් මැසේජ් (Local Path එකෙන් කියවීම)
+        // 2. වොයිස් මැසේජ් පරීක්ෂාව
         if (voiceMessages[text]) {
             const filePath = voiceMessages[text];
-            
+
             if (fs.existsSync(filePath)) {
-               await conn.sendMessage(from, { 
-                audio: audioBuffer, 
-                mimetype: 'audio/mpeg', // 'audio/mp4' වෙනුවට 'audio/mpeg' උත්සාහ කරන්න
-                ptt: true 
+                // මෙන්න මෙතැනදී අපි audioBuffer එක define කරනවා
+                const audioBuffer = fs.readFileSync(filePath); 
+
+                await conn.sendMessage(from, { 
+                    audio: audioBuffer, // මෙතැනදී ඉහත define කළ එක භාවිතා වේ
+                    mimetype: 'audio/mpeg', 
+                    ptt: true 
                 }, { quoted: msg });
+
+                console.log(`Send Media File: ${filePath}`);
+            } else {
+                console.log(`Not Found Media file: ${filePath}`);
             }
         }
 
@@ -41,4 +48,5 @@ async function handleMessages(conn, m) {
     }
 }
 
+module.exports = { handleMessages };
 module.exports = { handleMessages };
