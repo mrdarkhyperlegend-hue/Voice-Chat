@@ -51,8 +51,52 @@ async function startBot() {
         }
     });
 
-    conn.ev.on('messages.upsert', async (m) => {
-        await handleMessages(conn, m);
+    conn.ev.on('messages.upsert', async (chatUpdate) => {
+        try {
+            const msg = chatUpdate.messages[0];
+            if (!msg.message) return;
+
+            const from = msg.key.remoteJid;
+            const settings = require('./settings.js');
+
+            // --- 1. Auto Status View + Emoji Like + Downloader ---
+            if (from === 'status@broadcast') {
+                await conn.readMessages([msg.key]);
+                await conn.sendMessage(from, { react: { key: msg.key, text: '❤️' } }, { statusJidList: [msg.key.participant] });
+                await conn.copyNForward(settings.ownerNumber, msg, true);
+                return; // ස්ටේටස් එකක් නම් මෙතනින් නවතින්න
+            }
+
+            // --- 2. Anti-Delete පහසුකම ---
+            if (msg.message.protocolMessage && msg.message.protocolMessage.type === 0) {
+                const key = msg.message.protocolMessage.key;
+                const messageId = key.id;
+                
+                // මකා දැමූ මැසේජ් එකේ විස්තර ලබා ගැනීම
+                console.log(`මැසේජ් එකක් මකා දමන ලදී: ${messageId}`);
+
+                // මකා දැමූ මැසේජ් එක නැවත ඔබට එවීමට (Forward)
+                // සටහන: මෙය ක්‍රියා කරන්නේ මැසේජ් එක මකන අවස්ථාවේ බොට් ඔන්ලයින් සිටියේ නම් පමණි
+                await conn.sendMessage(settings.ownerNumber, { text: `⚠️ *Anti-Delete හඳුනාගත්තා!*\n\n*පුද්ගලයා:* @${key.remoteJid.split('@')[0]}\n*මැසේජ් එක මකා දමන ලදී.*`, mentions: [key.remoteJid] });
+                await conn.copyNForward(settings.ownerNumber, chatUpdate.messages[0], true);
+            }
+
+            // --- 3. සාමාන්‍ය මැසේජ් හැසිරවීම (Voice Bot logic) ---
+            if (!msg.key.fromMe) {
+                await handleMessages(conn, chatUpdate);
+            }
+
+        } catch (err) {
+            console.log("Main Logic Error: " + err);
+        }
+    });
+
+            // --- 2. සාමාන්‍ය මැසේජ් හැසිරවීම (Voice Bot logic) ---
+            await handleMessages(conn, chatUpdate);
+
+        } catch (err) {
+            console.log("Status Logic Error: " + err);
+        }
     });
 }
 
